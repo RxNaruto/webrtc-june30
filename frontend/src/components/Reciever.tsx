@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 export const Receiver = () => {
     const [socket, setSocket] = useState<null | WebSocket>(null);
+    const [peerConfig, setPeerConfig] = useState<any>(null);
 
     useEffect(() => {
         const socket = new WebSocket('wss://webrtc2way.rithkchaudharytechnologies.xyz/ws/');
@@ -9,20 +10,18 @@ export const Receiver = () => {
             socket.send(JSON.stringify({ type: 'receiver' }));
         };
         setSocket(socket);
+
+        (async () => {
+            const response = await fetch("https://mycapstoneturnserver.metered.live/api/v1/turn/credentials?apiKey=49c30365ef3c75870c2e02da41af28ba0a40");
+            const iceServers = await response.json();
+            setPeerConfig({ iceServers });
+        })();
     }, []);
 
     async function startSendingVideo() {
-        if (!socket) return;
+        if (!socket || !peerConfig) return;
 
-        const peerConnection = new RTCPeerConnection({
-            iceServers: [
-                { urls: "stun:stun.relay.metered.ca:80" },
-                { urls: "turn:global.relay.metered.ca:80", username: "2edbc4ede8c152d17b42ee6b", credential: "jRPaQXUnETledwbM" },
-                { urls: "turn:global.relay.metered.ca:80?transport=tcp", username: "2edbc4ede8c152d17b42ee6b", credential: "jRPaQXUnETledwbM" },
-                { urls: "turn:global.relay.metered.ca:443", username: "2edbc4ede8c152d17b42ee6b", credential: "jRPaQXUnETledwbM" },
-                { urls: "turns:global.relay.metered.ca:443?transport=tcp", username: "2edbc4ede8c152d17b42ee6b", credential: "jRPaQXUnETledwbM" }
-            ]
-        });
+        const peerConnection = new RTCPeerConnection(peerConfig);
 
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
@@ -44,6 +43,7 @@ export const Receiver = () => {
 
             if (data.type === 'createOffer') {
                 await peerConnection.setRemoteDescription(data.sdp);
+
                 const answer = await peerConnection.createAnswer();
                 await peerConnection.setLocalDescription(answer);
                 socket.send(JSON.stringify({ type: 'createAnswer', sdp: peerConnection.localDescription, target: 'sender' }));
@@ -56,9 +56,12 @@ export const Receiver = () => {
             }
         };
 
-        // 🎤 ENABLE AUDIO HERE
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        socket.send(JSON.stringify({ type: 'createOffer', sdp: peerConnection.localDescription, target: 'sender' }));
     }
 
     return (
@@ -67,3 +70,4 @@ export const Receiver = () => {
         </div>
     );
 };
+//code working fine till now 
