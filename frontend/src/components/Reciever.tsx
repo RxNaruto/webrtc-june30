@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 export const Receiver = () => {
     const [socket, setSocket] = useState<null | WebSocket>(null);
-    const [pc, setPc] = useState<RTCPeerConnection | null>(null);
+
 
     useEffect(() => {
         const socket = new WebSocket('ws://localhost:3004');
@@ -18,7 +18,6 @@ export const Receiver = () => {
         const peerConnection = new RTCPeerConnection({
             iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
         });
-        setPc(peerConnection);
 
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
