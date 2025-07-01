@@ -4,7 +4,7 @@ export const Sender = () => {
     const [socket, setSocket] = useState<null | WebSocket>(null);
 
     useEffect(() => {
-        const socket = new WebSocket('ws://localhost:3004');
+        const socket = new WebSocket('wss://webrtc2way.rithkchaudharytechnologies.xyz/ws/');
         socket.onopen = () => {
             socket.send(JSON.stringify({ type: 'sender' }));
         };
