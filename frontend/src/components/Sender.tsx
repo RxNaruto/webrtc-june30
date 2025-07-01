@@ -14,21 +14,11 @@ export const Sender = () => {
     async function startSendingVideo() {
         if (!socket) return;
 
-        const peerConnection = new RTCPeerConnection({
-            iceServers: [
-                { urls: "stun:stun.relay.metered.ca:80" },
-                {
-                    urls: "turn:global.relay.metered.ca:443",
-                    username: "2edbc4ede8c152d17b42ee6b",
-                    credential: "jRPaQXUnETledwbM",
-                },
-                {
-                    urls: "turns:global.relay.metered.ca:443?transport=tcp",
-                    username: "2edbc4ede8c152d17b42ee6b",
-                    credential: "jRPaQXUnETledwbM",
-                },
-            ]
-        });
+        // Fetch dynamic ICE servers
+        const response = await fetch("https://mycapstoneturnserver.metered.live/api/v1/turn/credentials?apiKey=49c30365ef3c75870c2e02da41af28ba0a40");
+        const iceServers = await response.json();
+
+        const peerConnection = new RTCPeerConnection({ iceServers });
 
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
@@ -41,7 +31,7 @@ export const Sender = () => {
             const video = document.createElement('video');
             video.autoplay = true;
             video.playsInline = true;
-            video.srcObject = event.streams[0]; // ✅ Correctly handles audio and video
+            video.srcObject = event.streams[0];
             document.body.appendChild(video);
         };
 
@@ -63,7 +53,8 @@ export const Sender = () => {
             }
         };
 
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); // ✅ Audio enabled
+        // Get local stream (video + audio)
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
         const offer = await peerConnection.createOffer();
