@@ -18,16 +18,6 @@ export const Receiver = () => {
             iceServers: [
                 { urls: "stun:stun.relay.metered.ca:80" },
                 {
-                    urls: "turn:global.relay.metered.ca:80",
-                    username: "2edbc4ede8c152d17b42ee6b",
-                    credential: "jRPaQXUnETledwbM",
-                },
-                {
-                    urls: "turn:global.relay.metered.ca:80?transport=tcp",
-                    username: "2edbc4ede8c152d17b42ee6b",
-                    credential: "jRPaQXUnETledwbM",
-                },
-                {
                     urls: "turn:global.relay.metered.ca:443",
                     username: "2edbc4ede8c152d17b42ee6b",
                     credential: "jRPaQXUnETledwbM",
@@ -51,7 +41,7 @@ export const Receiver = () => {
             const video = document.createElement('video');
             video.autoplay = true;
             video.playsInline = true;
-            video.srcObject = event.streams[0];
+            video.srcObject = event.streams[0]; // Handles both audio and video
             document.body.appendChild(video);
         };
 
@@ -73,8 +63,7 @@ export const Receiver = () => {
             }
         };
 
-        // ✅ Audio added here
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); // ✅ Audio enabled
         stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
         const offer = await peerConnection.createOffer();
