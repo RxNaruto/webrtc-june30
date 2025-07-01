@@ -15,7 +15,14 @@ export const Sender = () => {
         if (!socket) return;
 
         const peerConnection = new RTCPeerConnection({
-            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    {
+        urls: 'turn:relay1.expressturn.com:3478',
+        username: 'efgh',
+        credential: 'efgh'
+    }
+]
         });
         
 
