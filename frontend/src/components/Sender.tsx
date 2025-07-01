@@ -1,50 +1,69 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState } from "react";
 
-export const Sender=()=>{
-    const [socket,setSocket] = useState<null | WebSocket>(null);
-    useEffect(()=>{
+export const Sender = () => {
+    const [socket, setSocket] = useState<null | WebSocket>(null);
+    const [pc, setPc] = useState<RTCPeerConnection | null>(null);
+
+    useEffect(() => {
         const socket = new WebSocket('ws://localhost:3004');
-        socket.onopen=()=>{
-            socket.send(JSON.stringify({type: 'sender'}));
-        }
+        socket.onopen = () => {
+            socket.send(JSON.stringify({ type: 'sender' }));
+        };
         setSocket(socket);
-        
-    },[]) 
+    }, []);
 
-    async function startSendingVideo(){
-        if(!socket){
-            return;
-        }
-        const pc = new RTCPeerConnection({
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' }
-                    ]});
-        pc.onnegotiationneeded=async()=>{
-                console.log("onnegotiation needed");
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                socket?.send(JSON.stringify({type: "createOffer", sdp: pc.localDescription}));
-        }
-        pc.onicecandidate=(event)=>{
-            console.log(event);
-            if(event.candidate){
-                socket?.send(JSON.stringify({type: 'iceCandidate', candidate: event.candidate}));
+    async function startSendingVideo() {
+        if (!socket) return;
+
+        const peerConnection = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        });
+        setPc(peerConnection);
+
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.send(JSON.stringify({ type: 'iceCandidate', candidate: event.candidate, target: 'receiver' }));
             }
-        }
-       
-        socket.onmessage=(event)=>{
+        };
+
+        peerConnection.ontrack = (event) => {
+            console.log('Received track from receiver!', event);
+            const video = document.createElement('video');
+            video.autoplay = true;
+            video.playsInline = true;
+            video.srcObject = event.streams[0];
+            document.body.appendChild(video);
+        };
+
+        socket.onmessage = async (event) => {
             const data = JSON.parse(event.data);
-            if(data.type==="createAnswer"){
-              pc.setRemoteDescription(data.sdp);
+
+            if (data.type === 'createOffer') {
+                await peerConnection.setRemoteDescription(data.sdp);
+
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                socket.send(JSON.stringify({ type: 'createAnswer', sdp: peerConnection.localDescription, target: 'receiver' }));
             }
-            else if(data.type==='iceCandidate'){
-                pc.addIceCandidate(data.candidate);
+            else if (data.type === 'createAnswer') {
+                await peerConnection.setRemoteDescription(data.sdp);
             }
-        }
-        const stream = await navigator.mediaDevices.getUserMedia({video: true,audio: false});
-        pc.addTrack(stream.getVideoTracks()[0]);
+            else if (data.type === 'iceCandidate') {
+                await peerConnection.addIceCandidate(data.candidate);
+            }
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        socket.send(JSON.stringify({ type: 'createOffer', sdp: peerConnection.localDescription, target: 'receiver' }));
     }
-    return <div onClick={startSendingVideo}>
-        <button>Send Video</button>
-    </div>
-}
+
+    return (
+        <div onClick={startSendingVideo}>
+            <button>Send Video</button>
+        </div>
+    );
+};

@@ -1,48 +1,69 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react";
 
 export const Receiver = () => {
+    const [socket, setSocket] = useState<null | WebSocket>(null);
+    const [pc, setPc] = useState<RTCPeerConnection | null>(null);
+
     useEffect(() => {
         const socket = new WebSocket('ws://localhost:3004');
         socket.onopen = () => {
-            socket.send(JSON.stringify({ type: "receiver" }));
-        }
-        let pc: RTCPeerConnection | null = null;
-        socket.onmessage = async (event) => {
-            const message = JSON.parse(event.data);
-            if (message.type === 'createOffer') {
-                pc = new RTCPeerConnection({
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' }
-                    ]});
-
-                pc.setRemoteDescription(message.sdp);
-                pc.onicecandidate = (event) => {
-                    console.log(event);
-                    if (event.candidate) {
-                        socket?.send(JSON.stringify({ type: 'iceCandidate', candidate: event.candidate }));
-                    }
-                }
-                pc.ontrack=(event)=>{
-              
-                  console.log("Track received!", event);
-    const video = document.createElement('video');
-    video.autoplay = true;
-    video.muted = true;
-    video.setAttribute('playsinline', 'true');
-    video.srcObject = new MediaStream([event.track]);
-    document.body.appendChild(video);
-                }
-                const answer = await pc.createAnswer();
-                await pc.setLocalDescription(answer);
-                socket.send(JSON.stringify({ type: "createAnswer", sdp: pc.localDescription }));
-            }
-            else if(message.type==='iceCandidate'){
-                // @ts-ignore
-                pc.addIceCandidate(message.candidate);
-            }
-        }
+            socket.send(JSON.stringify({ type: 'receiver' }));
+        };
+        setSocket(socket);
     }, []);
-    return <div>
-         reciever
-    </div>
-}
+
+    async function startSendingVideo() {
+        if (!socket) return;
+
+        const peerConnection = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        });
+        setPc(peerConnection);
+
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.send(JSON.stringify({ type: 'iceCandidate', candidate: event.candidate, target: 'sender' }));
+            }
+        };
+
+        peerConnection.ontrack = (event) => {
+            console.log('Received track from sender!', event);
+            const video = document.createElement('video');
+            video.autoplay = true;
+            video.playsInline = true;
+            video.srcObject = event.streams[0];
+            document.body.appendChild(video);
+        };
+
+        socket.onmessage = async (event) => {
+            const data = JSON.parse(event.data);
+
+            if (data.type === 'createOffer') {
+                await peerConnection.setRemoteDescription(data.sdp);
+
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                socket.send(JSON.stringify({ type: 'createAnswer', sdp: peerConnection.localDescription, target: 'sender' }));
+            }
+            else if (data.type === 'createAnswer') {
+                await peerConnection.setRemoteDescription(data.sdp);
+            }
+            else if (data.type === 'iceCandidate') {
+                await peerConnection.addIceCandidate(data.candidate);
+            }
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        socket.send(JSON.stringify({ type: 'createOffer', sdp: peerConnection.localDescription, target: 'sender' }));
+    }
+
+    return (
+        <div onClick={startSendingVideo}>
+            <button>Send Video</button>
+        </div>
+    );
+};
