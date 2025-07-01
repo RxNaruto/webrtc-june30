@@ -15,7 +15,10 @@ export const Sender=()=>{
         if(!socket){
             return;
         }
-        const pc = new RTCPeerConnection();
+        const pc = new RTCPeerConnection({
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' }
+                    ]});
         pc.onnegotiationneeded=async()=>{
                 console.log("onnegotiation needed");
                 const offer = await pc.createOffer();

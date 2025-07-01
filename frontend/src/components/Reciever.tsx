@@ -10,7 +10,10 @@ export const Receiver = () => {
         socket.onmessage = async (event) => {
             const message = JSON.parse(event.data);
             if (message.type === 'createOffer') {
-                pc = new RTCPeerConnection();
+                pc = new RTCPeerConnection({
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' }
+                    ]});
 
                 pc.setRemoteDescription(message.sdp);
                 pc.onicecandidate = (event) => {
