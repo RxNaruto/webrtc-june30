@@ -73,7 +73,8 @@ export const Sender = () => {
             }
         };
 
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        // ✅ Audio added here
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
         const offer = await peerConnection.createOffer();
